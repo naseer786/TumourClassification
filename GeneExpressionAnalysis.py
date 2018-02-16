@@ -54,6 +54,20 @@ pdTrainFileValues.shape,pdTrainFileClassValues.shape,pdTestFileValues.shape
 
 
 
+# Transformation Normalization
+
+pdTrainOrderByGeneNormalized=stats.zscore(pdTrainOrderByGene)
+
+
+pdTrainOrderByGeneNormalizedSample=pdTrainOrderByGeneNormalized[:,0:50]
+figNormalizedGenes = plt.figure(2)
+figNormalizedGenes.suptitle('BoxPlot', fontsize=14, fontweight='bold')
+axNormalizedGenes = figNormalizedGenes.add_subplot(111)
+axNormalizedGenes.boxplot(pdTrainOrderByGeneNormalizedSample)
+axNormalizedGenes.set_title('Normalized Gene Expression Dataset')
+axNormalizedGenes.set_xlabel('Genes 1 to 50')
+axNormalizedGenes.set_ylabel('Normalized Gene Expression Values')
+figNormalizedGenes.savefig("BoxPlot Normalized Genes(1-50) Expression Data.png")
 
 
 
