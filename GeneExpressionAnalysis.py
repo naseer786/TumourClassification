@@ -3,6 +3,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from scipy import stats
+from sklearn import preprocessing
 
 
 # Root Path and Names of Individual File Names
@@ -71,3 +72,8 @@ figNormalizedGenes.savefig("BoxPlot Normalized Genes(1-50) Expression Data.png")
 
 
 
+# Encoding Train Class label Data to Numeric
+
+le=preprocessing.LabelEncoder()
+le.fit(pdTrainFileClassValues)
+trainClassNumericalValues=le.transform(pdTrainFileClassValues)
