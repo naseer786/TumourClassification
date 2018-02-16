@@ -30,6 +30,29 @@ pdTrainFileValues=pdTrainFileValues.drop(["SNO"],axis=1)
 pdTrainFileValues.shape
 pdTrainFileValues.columns
 
+#Displaying boxplot of Data
+
+
+
+pdTrainOrderByGene=pdTrainFileValues.transpose()
+pdTrainOrderByGeneSample=pdTrainOrderByGene.iloc[:,0:50]
+
+figRawGenes = plt.figure(1)
+figRawGenes.suptitle('BoxPlot', fontsize=14, fontweight='bold')
+axRawGenes = figRawGenes.add_subplot(111)
+axRawGenes.boxplot(pdTrainOrderByGeneSample)
+axRawGenes.set_title('Gene Expression Dataset')
+axRawGenes.set_xlabel('Genes 1 to 50')
+axRawGenes.set_ylabel('Gene Expression Values')
+
+figRawGenes.savefig("BoxPlot Raw Genes(1-50) Expression Data.png")
+
+pdTrainFileValues=pdTrainFileValues.transpose()
+pdTestFileValues=pdTestFileValues.drop(["SNO"],axis=1)
+pdTestFileValues=pdTestFileValues.transpose()
+pdTrainFileValues.shape,pdTrainFileClassValues.shape,pdTestFileValues.shape
+
+
 
 
 
