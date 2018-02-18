@@ -8,7 +8,16 @@ from scipy.cluster.hierarchy import  linkage,dendrogram
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 import pickle
+from sklearn.externals import joblib
 
+
+def saveTrainedModel(model,path):
+    print("model:",model)
+    print("path:",path)
+    joblib.dump(model,path)
+
+def loadTrainedBasLineModel(path):
+    return joblib.load(path)
 
 
 
@@ -17,6 +26,7 @@ rootPath='E:/BioInformatics'
 trainFileName='pp5i_train.gr.csv'
 trainFileClassName='pp5i_train_class.txt'
 testFileName='pp5i_test.gr.csv'
+trainedModelPath=rootPath+"/"+"TrainedModels"
 
 #Creating absolute Path from the relative Path
 trainFilePath=rootPath+'/'+trainFileName
@@ -100,5 +110,6 @@ svmClassifier = SVC()
 baselineSVMTrainedModel=svmClassifier.fit(X_train,Y_train)
 print("Basline Accuracy of SVM Classifier on Whole Gene Expression Dataset:",baselineSVMTrainedModel.score(X_test,Y_test))
 
-
+absoluteBaselineTrainedModelPath=trainedModelPath+"/baselineSVMTrainedModel.pkl"
+saveTrainedModel(baselineSVMTrainedModel,absoluteBaselineTrainedModelPath)
 
