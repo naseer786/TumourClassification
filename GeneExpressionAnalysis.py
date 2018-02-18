@@ -4,6 +4,12 @@ import os
 import matplotlib.pyplot as plt
 from scipy import stats
 from sklearn import preprocessing
+from scipy.cluster.hierarchy import  linkage,dendrogram
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
+import pickle
+
+
 
 
 # Root Path and Names of Individual File Names
@@ -77,3 +83,22 @@ figNormalizedGenes.savefig("BoxPlot Normalized Genes(1-50) Expression Data.png")
 le=preprocessing.LabelEncoder()
 le.fit(pdTrainFileClassValues)
 trainClassNumericalValues=le.transform(pdTrainFileClassValues)
+
+
+# Plotting Data using Hierarchical Clustering
+
+mergings=linkage(pdTrainFileValues,method="complete")
+dendrogram(mergings)
+
+
+#Basline Classifier for Gene Expression Dataset
+
+X,y=pdTrainOrderByGeneNormalized,trainClassNumericalValues
+X_train,X_test,Y_train,Y_test=train_test_split(X,y,test_size=0.2)
+
+svmClassifier = SVC()
+baselineSVMTrainedModel=svmClassifier.fit(X_train,Y_train)
+print("Basline Accuracy of SVM Classifier on Whole Gene Expression Dataset:",baselineSVMTrainedModel.score(X_test,Y_test))
+
+
+
