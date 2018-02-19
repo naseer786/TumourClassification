@@ -189,3 +189,12 @@ def filterClustersWithThreshold(clusterScoreData,threshold):
             filteredClusters[key]=value
     return filteredClusters
 
+def combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters):
+    listOfGenes=[]
+    for key,value in filteredClusters.items():
+        tempGeneList=dicOfGenesWithClusters[key]
+        for gene in tempGeneList:
+            listOfGenes.append(gene)
+        listOfGenes=sorted(listOfGenes)
+    return X[:,listOfGenes],listOfGenes
+
