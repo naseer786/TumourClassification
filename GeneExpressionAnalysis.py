@@ -198,3 +198,26 @@ def combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters):
         listOfGenes=sorted(listOfGenes)
     return X[:,listOfGenes],listOfGenes
 
+count=1
+samples=GeneDataForClustering.shape[0]
+
+while (Initial_Clusters>Final_Clusters) and (samples>Initial_Clusters):
+        print("Iteration.....:",count)
+        print("Initial Clusters...:",Initial_Clusters)
+        print("Data Shape...:",GeneDataForClustering.shape)
+        kmeansCluster=KMeans(n_clusters=Initial_Clusters)
+        kmeansCluster.fit(GeneDataForClustering)
+        dicOfGenesWithClusters=joinGenesWithClusters(kmeansCluster.labels_,Initial_Clusters)
+        clusterScore=clusterScoreOfGenes(dicOfGenesWithClusters,Initial_Clusters)
+        filteredClusters=filterClustersWithThreshold(clusterScore,Threshold)
+        GeneDataForClustering,combineGenes=combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters)
+        GeneDataForClustering=GeneDataForClustering.transpose()
+        Initial_Clusters=int(Initial_Clusters-Decreate_Rate*Initial_Clusters)
+        count+=1
+        samples = GeneDataForClustering.shape[0]
+        print("___________________________________________________________")
+
+GeneDataForClustering=GeneDataForClustering.transpose()
+finalXTrain,finalXTest,finalYTrain,finalYTest=train_test_split(GeneDataForClustering,y,test_size=0.4)
+svmClassifier.fit(finalXTrain,finalYTrain)
+print(svmClassifier.score(finalXTest,finalYTest))
