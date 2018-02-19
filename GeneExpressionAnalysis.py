@@ -171,3 +171,14 @@ def joinGenesWithClusters(geneDataClusters,totalClusters):
        dicOfGenesInCluster[geneDataClusters[i]].append(i)
     return dicOfGenesInCluster
 
+def clusterScoreOfGenes(geneClusterData,totalClusters):
+    clusterScoreDic={}
+    for key,value in geneClusterData.items():
+        geneIndices=geneClusterData[key]
+        extracedGenesData=X[:,geneIndices]
+        svmClusterClassifier=SVC()
+        xTrain,xTest,yTrain,yTest=train_test_split(extracedGenesData,y,test_size=0.4)
+        svmClusterClassifier.fit(xTrain,yTrain)
+        clusterScoreDic[key]=svmClusterClassifier.score(xTest,yTest)
+    return clusterScoreDic
+
