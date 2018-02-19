@@ -182,3 +182,10 @@ def clusterScoreOfGenes(geneClusterData,totalClusters):
         clusterScoreDic[key]=svmClusterClassifier.score(xTest,yTest)
     return clusterScoreDic
 
+def filterClustersWithThreshold(clusterScoreData,threshold):
+    filteredClusters={}
+    for key,value in clusterScoreData.items():
+        if clusterScoreData[key] > threshold:
+            filteredClusters[key]=value
+    return filteredClusters
+
