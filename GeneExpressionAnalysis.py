@@ -300,3 +300,33 @@ print(svmClassifier.score(finalXTest,finalYTest))
 
 
 
+
+
+
+#Genetic Algorithm
+
+estimator=SVC()
+selector = GeneticSelectionCV(estimator,
+                                  cv=5,
+                                  verbose=1,
+                                  scoring="accuracy",
+                                  n_population=50,
+                                  crossover_proba=0.5,
+                                  mutation_proba=0.2,
+                                  n_generations=40,
+                                  crossover_independent_proba=0.5,
+                                  mutation_independent_proba=0.05,
+                                  tournament_size=3,
+                                  caching=True,
+                                  n_jobs=-1)
+selector = selector.fit(kBestFeaturesData, y)
+
+
+genXTrain,genXTest,genYTrain,genYTest=train_test_split(geneticFeaturesData,y,test_size=0.4)
+
+estimator.fit(genXTrain,genYTrain)
+
+testFeatureTransformUsingInformationGain=selectKBest.transform(pdTestFileValues)
+print(estimator.score(genXTest,genYTest))
+finalTransormedTestValues=selector.transform(testFeatureTransformUsingInformationGain)
+estimator.predict(finalTransormedTestValues)
