@@ -12,6 +12,13 @@ from sklearn.externals import joblib
 from sklearn.feature_selection import RFE
 from sklearn.cluster import KMeans
 from sklearn import cross_validation
+from sklearn import K
+from  sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import mutual_info_classif
+from sklearn.model_selection import LeaveOneOut
+from genetic_selection import GeneticSelectionCV
+
+
 
 def saveTrainedModel(model,path):
     print("model:",model)
@@ -21,7 +28,35 @@ def saveTrainedModel(model,path):
 def loadTrainedBasLineModel(path):
     return joblib.load(path)
 
+def selectKBestWithFeaturesWithIndices(features,k):
+    dictionaryOfKBestFeaturesWithIndices={}
+    indices=np.argpartition(features,-k)[-k:]
+    values=features[indices]
+    for index in range(len(indices)):
+        key=indices[index]
+        val=values[index]
+        dictionaryOfKBestFeaturesWithIndices[key]=val
+    return dictionaryOfKBestFeaturesWithIndices
 
+def getMinAndMaxOfDictionary(dic):
+    min=1
+    max=0
+    for key,value in dic.items():
+        if min>dic[key]:
+            min=dic[key]
+        if max <dic[key]:
+            max=dic[key]
+    return min,max
+
+def convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures):
+    n=len(dictOfKBestFeatures)
+    dicOfGenesIndex={}
+    keys=sorted(dictOfKBestFeatures.keys())
+    count=0
+    for index in range(len(keys)):
+        dicOfGenesIndex[index]=keys[index]
+        count+=1
+    return dicOfGenesIndex
 
 # Root Path and Names of Individual File Names
 rootPath='E:/BioInformatics'
@@ -105,15 +140,42 @@ mergings=linkage(pdTrainFileValues,method="complete")
 dendrogram(mergings)
 
 
+
+#Feature Selection Using Information Gain
+X,y=pdTrainOrderByGeneNormalized,trainClassNumericalValues
+
+FeaturesToBeSelected=4000
+selectKBest=SelectKBest(mutual_info_classif, k=FeaturesToBeSelected).fit(X,y)
+featureScores=selectKBest.scores_
+dictOfKBestFeatures=selectKBestWithFeaturesWithIndices(featureScores,FeaturesToBeSelected)
+sortedKeys=sorted(dictOfKBestFeatures.keys())
+kBestFeaturesData=selectKBest.transform(X)
+selectedGenesNamesUsingKBest=list(pdGeneNames[sortedKeys])
+dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
+
+mergings=linkage(kBestFeaturesData.transpose(),method="complete")
+dendrogram(mergings,leaf_rotation=90.,leaf_font_size=12.,labels=selectedGenesNamesUsingKBest)
+
+
+
+#Using Leave One out for checking accuracy
+featureScoreUsingInformationGain=[]
+leaveOneOut=LeaveOneOut()
+for train_index,test_index in leaveOneOut.split(kBestFeaturesData):
+    svmClassifier = SVC()
+    XTrain,XTest=kBestFeaturesData[train_index],kBestFeaturesData[test_index]
+    YTrain,YTest=y[train_index],y[test_index]
+    svmClassifier.fit(XTrain,YTrain)
+    featureScoreUsingInformationGain.append(svmClassifier.score(XTest,YTest))
+
 #Basline Classifier for Gene Expression Dataset
 
-svmClassifier = SVC()
-X,y=pdTrainOrderByGeneNormalized,trainClassNumericalValues
-X_train,X_test,Y_train,Y_test=train_test_split(X,y,test_size=0.5)
+X_train,X_test,Y_train,Y_test=train_test_split(selectedKBestFeatures,y,test_size=0.5)
 
 svmClassifier.fit(X_train,Y_train)
 
-scores=cross_validation.cross_val_score(svmClassifier,X,y,cv=5)
+score=svmClassifier.score(X_test,Y_test)
+print(scores.mean())
 
 baselineSVMTrainedModel = svmClassifier.fit(X_train, Y_train)
 SPLITS=10
@@ -153,22 +215,17 @@ for i in range(100):
 
 
 
-# Apply Kmeans Clustering
-Initial_Clusters=1000
-Final_Clusters=50
-Decreate_Rate=0.1
-GeneDataForClustering=X.transpose()
-Threshold=0.30
+
 
 
 #while Initial_Clusters>Final_Clusters:
-def joinGenesWithClusters(geneDataClusters,totalClusters):
+def joinGenesWithClusters(geneDataClusters,totalClusters,dicOfGenesIndices):
     dicOfGenesInCluster={}
     for i in range(totalClusters):
         dicOfGenesInCluster[i]=[]
     totalGenes=len(geneDataClusters)
     for i in range(totalGenes):
-       dicOfGenesInCluster[geneDataClusters[i]].append(i)
+       dicOfGenesInCluster[geneDataClusters[i]].append(dicOfGenesIndices[i])
     return dicOfGenesInCluster
 
 def clusterScoreOfGenes(geneClusterData,totalClusters):
@@ -190,34 +247,56 @@ def filterClustersWithThreshold(clusterScoreData,threshold):
     return filteredClusters
 
 def combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters):
+    dicOfGenesIndicesTemp={}
     listOfGenes=[]
     for key,value in filteredClusters.items():
         tempGeneList=dicOfGenesWithClusters[key]
         for gene in tempGeneList:
             listOfGenes.append(gene)
         listOfGenes=sorted(listOfGenes)
-    return X[:,listOfGenes],listOfGenes
+    for index in range(len(listOfGenes)):
+        dicOfGenesIndicesTemp[index]=listOfGenes[index]
+    return X[:,listOfGenes],listOfGenes,dicOfGenesIndicesTemp
+
+
+
+# Apply Kmeans Clustering
+Initial_Clusters=600
+Final_Clusters=10
+Decreate_Rate=0.03
+GeneDataForClustering=kBestFeaturesData.transpose()
+Threshold=0.7
+dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
+
 
 count=1
-samples=GeneDataForClustering.shape[0]
-
-while (Initial_Clusters>Final_Clusters) and (samples>Initial_Clusters):
+samples=kBestFeaturesData.shape[0]
+firstDim = GeneDataForClustering.shape[0]
+while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
         print("Iteration.....:",count)
         print("Initial Clusters...:",Initial_Clusters)
+        print("Final Clusters...:", Final_Clusters)
         print("Data Shape...:",GeneDataForClustering.shape)
         kmeansCluster=KMeans(n_clusters=Initial_Clusters)
         kmeansCluster.fit(GeneDataForClustering)
-        dicOfGenesWithClusters=joinGenesWithClusters(kmeansCluster.labels_,Initial_Clusters)
+        dicOfGenesWithClusters=joinGenesWithClusters(kmeansCluster.labels_,Initial_Clusters,dicOfGenesIndices)
         clusterScore=clusterScoreOfGenes(dicOfGenesWithClusters,Initial_Clusters)
         filteredClusters=filterClustersWithThreshold(clusterScore,Threshold)
-        GeneDataForClustering,combineGenes=combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters)
+        GeneDataForClustering,combineGenes,dicOfGenesIndices=combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters)
         GeneDataForClustering=GeneDataForClustering.transpose()
+
         Initial_Clusters=int(Initial_Clusters-Decreate_Rate*Initial_Clusters)
         count+=1
-        samples = GeneDataForClustering.shape[0]
+        samples = GeneDataForClustering.shape[1]
+        firstDim=GeneDataForClustering.shape[0]
         print("___________________________________________________________")
+
 
 GeneDataForClustering=GeneDataForClustering.transpose()
 finalXTrain,finalXTest,finalYTrain,finalYTest=train_test_split(GeneDataForClustering,y,test_size=0.4)
 svmClassifier.fit(finalXTrain,finalYTrain)
 print(svmClassifier.score(finalXTest,finalYTest))
+
+
+
+
