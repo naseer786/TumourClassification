@@ -1,4 +1,5 @@
 import  pandas as pd
+import  numpy
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -12,13 +13,38 @@ from sklearn.externals import joblib
 from sklearn.feature_selection import RFE
 from sklearn.cluster import KMeans
 from sklearn import cross_validation
-from sklearn import K
 from  sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.model_selection import LeaveOneOut
 from genetic_selection import GeneticSelectionCV
+from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import KFold
+import skrebate
 
 
+
+
+
+def makePlotOfClassValues(listOfClassValues,plotName):
+    dicOfClassLabels = {}
+    if isinstance(listOfClassValues,numpy.ndarray):
+        for index in range(len(listOfClassValues)):
+            val=listOfClassValues[index]
+            if val not in dicOfClassLabels:
+                dicOfClassLabels[val]=1
+            else:
+                dicOfClassLabels[val] += 1
+    else:
+        for val in listOfClassValues.values.flatten():
+            if val not in dicOfClassLabels:
+                dicOfClassLabels[val] = 1
+            else:
+                dicOfClassLabels[val] += 1
+
+    labels, freq = zip(*dicOfClassLabels.items())
+    plt.bar(labels, freq)
+    plt.savefig(plotName)
+    plt.show()
 
 def saveTrainedModel(model,path):
     print("model:",model)
@@ -76,17 +102,34 @@ pdTrainFileClassValues=pd.read_csv(trainFileClassPath,header=None,sep=" ")
 pdTestFileValues=pd.read_csv(testFilePath)
 
 pdGeneNames=pdTrainFileValuesWithGeneColumn['SNO']
+pdGeneNamesList=list(pdGeneNames)
 pdTrainFileValues=pdTrainFileValuesWithGeneColumn.drop(["SNO"],axis=1)
-#pdTrainFileClassValues=pdTrainFileValuesWithGeneColumn[1:]
+
 pdTrainOrderByGene=pdTrainFileValues.transpose()
+# Encoding Train Class label Data to Numeric
+
+le=preprocessing.LabelEncoder()
+le.fit(pdTrainFileClassValues)
+trainClassNumericalValues=le.transform(pdTrainFileClassValues)
+
+X=pdTrainOrderByGene
+y=trainClassNumericalValues
+
+#oversampling using SMOTE
+
+X_resampled, y_resampled = SMOTE().fit_sample(X, trainClassNumericalValues)
+y_resampled_labels=le.inverse_transform(y_resampled)
+
+pdTrainOrderByGene=pd.DataFrame(X_resampled,columns=pdGeneNamesList)
+#pdTrainFileClassValues=pdTrainFileValuesWithGeneColumn[1:]
+pdTrainOrderByGene=pdTrainOrderByGene=pd.DataFrame(X_resampled,columns=pdGeneNamesList)
 pdTrainOrderByGeneSample=pdTrainOrderByGene.iloc[:,0:50]
+trainClassNumericalValues=y_resampled
 
-pdTestFileValues.shape
 
-pdTrainFileValues.shape
 
-pdTrainFileValues.shape
-pdTrainFileValues.columns
+
+
 
 #Displaying boxplot of Data
 
@@ -127,12 +170,13 @@ figNormalizedGenes.savefig("BoxPlot Normalized Genes(1-50) Expression Data.png")
 
 
 
-# Encoding Train Class label Data to Numeric
 
-le=preprocessing.LabelEncoder()
-le.fit(pdTrainFileClassValues)
-trainClassNumericalValues=le.transform(pdTrainFileClassValues)
 
+
+# Make Frequency Distribution of class values
+
+makePlotOfClassValues(pdTrainFileClassValues,"frequency_distribution_class_wise.png")
+makePlotOfClassValues(y_resampled_labels,"Resampled_frequency_distribution_class_wise.png")
 
 # Plotting Data using Hierarchical Clustering
 
@@ -153,8 +197,17 @@ kBestFeaturesData=selectKBest.transform(X)
 selectedGenesNamesUsingKBest=list(pdGeneNames[sortedKeys])
 dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
 
-mergings=linkage(kBestFeaturesData.transpose(),method="complete")
-dendrogram(mergings,leaf_rotation=90.,leaf_font_size=12.,labels=selectedGenesNamesUsingKBest)
+
+#Feature Selection Using Correlation Based Filter Methods
+
+reliefFFeaures=1000
+reliefFNeighbours=100
+reliefFFeaures=skrebate.ReliefF(n_features_to_select=reliefFFeaures,n_neighbors=reliefFNeighbours)
+reliefFFeauresFitted=reliefFFeaures.fit(kBestFeaturesData,y)
+reliefFTransformedFeatures=reliefFFeauresFitted.transform(kBestFeaturesData)
+#Creating Dendogram of the Gene Data
+#mergings=linkage(kBestFeaturesData.transpose(),method="complete")
+#dendrogram(mergings,leaf_rotation=90.,leaf_font_size=12.,labels=selectedGenesNamesUsingKBest)
 
 
 
@@ -233,10 +286,18 @@ def clusterScoreOfGenes(geneClusterData,totalClusters):
     for key,value in geneClusterData.items():
         geneIndices=geneClusterData[key]
         extracedGenesData=X[:,geneIndices]
-        svmClusterClassifier=SVC()
-        xTrain,xTest,yTrain,yTest=train_test_split(extracedGenesData,y,test_size=0.4)
-        svmClusterClassifier.fit(xTrain,yTrain)
-        clusterScoreDic[key]=svmClusterClassifier.score(xTest,yTest)
+        kFold=KFold(n_splits=10,shuffle=True)
+        tempScores=[]
+        for train_index,test_index in kFold.split(extracedGenesData):
+            svmClusterClassifier = SVC()
+            tempXTrain,tempXTest=extracedGenesData[train_index],extracedGenesData[test_index]
+            tempYTrain,tempYTest=y_resampled[train_index],y_resampled[test_index]
+            svmClusterClassifier.fit(tempXTrain,tempYTrain)
+            tempScores.append(svmClusterClassifier.score(tempXTest,tempYTest))
+        clusterScoreDic[key] = np.mean(tempScores)
+        #xTrain,xTest,yTrain,yTest=train_test_split(extracedGenesData,y,test_size=0.4)
+        #svmClusterClassifier.fit(xTrain,yTrain)
+        #clusterScoreDic[key]=svmClusterClassifier.score(xTest,yTest)
     return clusterScoreDic
 
 def filterClustersWithThreshold(clusterScoreData,threshold):
@@ -265,19 +326,24 @@ Initial_Clusters=600
 Final_Clusters=10
 Decreate_Rate=0.03
 GeneDataForClustering=kBestFeaturesData.transpose()
-Threshold=0.7
+Threshold=0.75
 dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
 
 
 count=1
 samples=kBestFeaturesData.shape[0]
 firstDim = GeneDataForClustering.shape[0]
-while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
+K=1
+while(firstDim>100):
+    #print("**********************************************************************")
+    #print(" Attempt:", K,"To Find Features < 100....")
+    while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
         print("Iteration.....:",count)
         print("Initial Clusters...:",Initial_Clusters)
         print("Final Clusters...:", Final_Clusters)
         print("Data Shape...:",GeneDataForClustering.shape)
-        kmeansCluster=KMeans(n_clusters=Initial_Clusters)
+        print("Features....",len(dicOfGenesIndices))
+        kmeansCluster=KMeans(n_clusters=Initial_Clusters,max_iter=600,n_init=50)
         kmeansCluster.fit(GeneDataForClustering)
         dicOfGenesWithClusters=joinGenesWithClusters(kmeansCluster.labels_,Initial_Clusters,dicOfGenesIndices)
         clusterScore=clusterScoreOfGenes(dicOfGenesWithClusters,Initial_Clusters)
@@ -290,10 +356,22 @@ while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
         samples = GeneDataForClustering.shape[1]
         firstDim=GeneDataForClustering.shape[0]
         print("___________________________________________________________")
+    #count=1
+    #Initial_Clusters = 600
+    #Final_Clusters = 10
+    #Decreate_Rate = 0.03
+    #GeneDataForClustering = kBestFeaturesData.transpose()
+    #Threshold = 0.75
+    #dicOfGenesIndices = convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
+    #samples = kBestFeaturesData.shape[0]
+    #firstDim = GeneDataForClustering.shape[0]
+    #K+=1
 
 
-GeneDataForClustering=GeneDataForClustering.transpose()
-finalXTrain,finalXTest,finalYTrain,finalYTest=train_test_split(GeneDataForClustering,y,test_size=0.4)
+filteredGenesList=pdGeneNamesList[list(dicOfGenesIndices.values())]
+svmClassifier=SVC()
+GeneDataForClusteringReshaped=GeneDataForClustering.transpose()
+finalXTrain,finalXTest,finalYTrain,finalYTest=train_test_split(GeneDataForClusteringReshaped,y_resampled,test_size=0.4)
 svmClassifier.fit(finalXTrain,finalYTrain)
 print(svmClassifier.score(finalXTest,finalYTest))
 
@@ -319,10 +397,11 @@ selector = GeneticSelectionCV(estimator,
                                   tournament_size=3,
                                   caching=True,
                                   n_jobs=-1)
-selector = selector.fit(kBestFeaturesData, y)
+selector.fit(reliefFTransformedFeatures,y_resampled)
+transformedTrainFeatures=selector.transform(reliefFTransformedFeatures)
 
 
-genXTrain,genXTest,genYTrain,genYTest=train_test_split(geneticFeaturesData,y,test_size=0.4)
+genXTrain,genXTest,genYTrain,genYTest=train_test_split(transformedTrainFeatures,y,test_size=0.4)
 
 estimator.fit(genXTrain,genYTrain)
 
