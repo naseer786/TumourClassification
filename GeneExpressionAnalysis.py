@@ -20,7 +20,7 @@ from genetic_selection import GeneticSelectionCV
 from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import KFold
 import skrebate
-
+import csv
 
 
 
@@ -388,6 +388,27 @@ def convertGeneNameToIndex(dic,geneList):
         index=dic[gene]
         result.append(index)
     return result
+def saveSeletedGenesToFile(indices,path,geneFileNames):
+    f=open(path,'w')
+    for index in indices:
+        val=geneFileNames[index]
+        f.write(val+"\n")
+    f.close()
+def saveSelectedGenesIndicesToFile(indices,path,geneFileNames):
+    f=open(path,'w')
+    for index in indices:
+        f.write(str(index)+"\n")
+    f.close()
+
+def writeToCSV(path,geneIndices,geneFileNames):
+    with open(path,'w') as csvFile:
+        fieldnames = ['GeneIndex', 'GeneName']
+        writer=csv.DictWriter(csvFile,fieldnames=fieldnames)
+        writer.writeheader()
+        for index in geneIndices:
+            val=geneFileNames[index]
+            writer.writerow({fieldnames[0]:index,fieldnames[1]:val})
+
 
 
 filteredGenesList=getFinalPruncedGenes(pdGeneNamesList,list(dicOfGenesIndices.values()))
@@ -402,6 +423,10 @@ saveTrainedModel(svmClassifier,"E:\BioInformatics\TrainedModels\ClusterFeatureMo
 
 dicOfGenes=dicOfGenesToIndex(pdGeneNames)
 geneIndices=convertGeneNameToIndex(dicOfGenes,filteredGenesList)
+saveSelectedGenesIndicesToFile(geneIndices,rootPath+"/TrainedModels/geneIndices.txt",pdGeneNames)
+saveSeletedGenesToFile(geneIndices,rootPath+"/TrainedModels/geneNames.txt",pdGeneNames)
+writeToCSV(rootPath+"/TrainedModels/geneNameIndex.csv",geneIndices,pdGeneNames)
+
 pdTestDataNormalized=stats.zscore(pdTestFileValues)
 testDataPruned=pdTestDataNormalized[:,geneIndices]
 

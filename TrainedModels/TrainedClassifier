@@ -1,0 +1,41 @@
+import numpy as np
+import pandas as pd
+from scipy import stats
+import sys
+from sklearn.externals import joblib
+import os
+
+
+def getIndicesUsingGeneName(pdTestData,genenames):
+    pdSNODataDictionary=dict(pdTestData['SNO'])
+    resultDic={}
+
+    for k,v in pdSNODataDictionary.items():
+        resultDic[v]=k
+    return resultDic
+
+
+
+print("Please enter file path using a space(only .csv file allowed) and type ENTER:")
+print("Example  E:\TestData.csv")
+
+
+trainModelPath="TrainedModels\ClusterFeatureModel.pkl"
+print("Loading Trained model........")
+trainedKmeansModel=joblib.load(trainModelPath)
+trainedGeneNames=[  "D14662_at","D26350_at","D42041_at","D45248_at","D87258_at","J05096_rna1_at",
+                    "L08424_at","L21993_at","L48513_at","M14648_at","M16447_at","M33680_at","M59488_at",
+                    "M62302_at","M63623_at","M63959_at","M84349_at","M93426_at","U06681_at","U07802_at","U24266_at",
+                    "U32331_at","U46499_at","U60975_at","U67156_at","U72661_at","U76456_at","U79294_at","U84540_at",
+                    "U90916_at","X13916_at","X53587_at","X55740_at","X59065_at","X75756_at","X75861_at",
+                    "X84195_at","Z50022_at","D16481_at","D25304_at","X73478_at","J03060_at","D13631_s_at",
+                    "D14826_s_at","M24486_s_at","S69272_s_at","U59877_s_at","U72263_s_at","U76764_s_at",
+                    "AF000424_s_at","X99133_at",
+                ]
+testfileName = input()
+pdTestFileData=pd.read_csv("E:\BioInformatics\pp5i_test.gr.csv")
+pdTestDataOrderByGene=pdTestFileData.transpose()
+Indices=getIndicesUsingGeneName(pdTestFileData,trainedGeneNames)
+pdTestFileStandardized=stats.zscore(pdTestFileData)
+
+input("Please ENTER to quit...")
