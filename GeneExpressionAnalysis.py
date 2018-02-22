@@ -124,7 +124,10 @@ pdTrainOrderByGene=pd.DataFrame(X_resampled,columns=pdGeneNamesList)
 #pdTrainFileClassValues=pdTrainFileValuesWithGeneColumn[1:]
 pdTrainOrderByGene=pdTrainOrderByGene=pd.DataFrame(X_resampled,columns=pdGeneNamesList)
 pdTrainOrderByGeneSample=pdTrainOrderByGene.iloc[:,0:50]
-trainClassNumericalValues=y_resampled
+trainClassNumericalValues=y_resampled_labels
+
+pdTrainOrderByGene=X
+pdTrainOrderByGeneSample=X.iloc[:,0:50]
 
 
 
@@ -188,7 +191,7 @@ dendrogram(mergings)
 #Feature Selection Using Information Gain
 X,y=pdTrainOrderByGeneNormalized,trainClassNumericalValues
 
-FeaturesToBeSelected=4000
+FeaturesToBeSelected=1000
 selectKBest=SelectKBest(mutual_info_classif, k=FeaturesToBeSelected).fit(X,y)
 featureScores=selectKBest.scores_
 dictOfKBestFeatures=selectKBestWithFeaturesWithIndices(featureScores,FeaturesToBeSelected)
@@ -200,7 +203,7 @@ dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
 
 #Feature Selection Using Correlation Based Filter Methods
 
-reliefFFeaures=1000
+reliefFFeaures=500
 reliefFNeighbours=100
 reliefFFeaures=skrebate.ReliefF(n_features_to_select=reliefFFeaures,n_neighbors=reliefFNeighbours)
 reliefFFeauresFitted=reliefFFeaures.fit(kBestFeaturesData,y)
@@ -322,11 +325,11 @@ def combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters):
 
 
 # Apply Kmeans Clustering
-Initial_Clusters=600
+Initial_Clusters=100
 Final_Clusters=10
-Decreate_Rate=0.03
+Decreate_Rate=0.1
 GeneDataForClustering=kBestFeaturesData.transpose()
-Threshold=0.75
+Threshold=0.70
 dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
 
 
@@ -334,28 +337,27 @@ count=1
 samples=kBestFeaturesData.shape[0]
 firstDim = GeneDataForClustering.shape[0]
 K=1
-while(firstDim>100):
-    #print("**********************************************************************")
-    #print(" Attempt:", K,"To Find Features < 100....")
-    while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
-        print("Iteration.....:",count)
-        print("Initial Clusters...:",Initial_Clusters)
-        print("Final Clusters...:", Final_Clusters)
-        print("Data Shape...:",GeneDataForClustering.shape)
-        print("Features....",len(dicOfGenesIndices))
-        kmeansCluster=KMeans(n_clusters=Initial_Clusters,max_iter=600,n_init=50)
-        kmeansCluster.fit(GeneDataForClustering)
-        dicOfGenesWithClusters=joinGenesWithClusters(kmeansCluster.labels_,Initial_Clusters,dicOfGenesIndices)
-        clusterScore=clusterScoreOfGenes(dicOfGenesWithClusters,Initial_Clusters)
-        filteredClusters=filterClustersWithThreshold(clusterScore,Threshold)
-        GeneDataForClustering,combineGenes,dicOfGenesIndices=combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters)
-        GeneDataForClustering=GeneDataForClustering.transpose()
 
-        Initial_Clusters=int(Initial_Clusters-Decreate_Rate*Initial_Clusters)
-        count+=1
-        samples = GeneDataForClustering.shape[1]
-        firstDim=GeneDataForClustering.shape[0]
-        print("___________________________________________________________")
+#print("**********************************************************************")
+#print(" Attempt:", K,"To Find Features < 100....")
+while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
+    print("Iteration.....:",count)
+    print("Initial Clusters...:",Initial_Clusters)
+    print("Final Clusters...:", Final_Clusters)
+    print("Data Shape...:",GeneDataForClustering.shape)
+    print("Features....",len(dicOfGenesIndices))
+    kmeansCluster=KMeans(n_clusters=Initial_Clusters,max_iter=600,n_init=60)
+    kmeansCluster.fit(GeneDataForClustering)
+    dicOfGenesWithClusters=joinGenesWithClusters(kmeansCluster.labels_,Initial_Clusters,dicOfGenesIndices)
+    clusterScore=clusterScoreOfGenes(dicOfGenesWithClusters,Initial_Clusters)
+    filteredClusters=filterClustersWithThreshold(clusterScore,Threshold)
+    GeneDataForClustering,combineGenes,dicOfGenesIndices=combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters)
+    GeneDataForClustering=GeneDataForClustering.transpose()
+    Initial_Clusters=int(Initial_Clusters-Decreate_Rate*Initial_Clusters)
+    count+=1
+    samples = GeneDataForClustering.shape[1]
+    firstDim=GeneDataForClustering.shape[0]
+    print("___________________________________________________________")
     #count=1
     #Initial_Clusters = 600
     #Final_Clusters = 10
@@ -367,18 +369,43 @@ while(firstDim>100):
     #firstDim = GeneDataForClustering.shape[0]
     #K+=1
 
+def getFinalPruncedGenes(geneNameList,indices):
+    finalGenes=[]
+    for i in range(len(indices)):
+        index=indices[i]
+        finalGenes.append(geneNameList[index])
+    return finalGenes
 
-filteredGenesList=pdGeneNamesList[list(dicOfGenesIndices.values())]
+def dicOfGenesToIndex(pdGene):
+    dic={}
+    for i in range(len(pdGene)):
+        val=pdGene[i]
+        dic[val]=i
+    return dic
+def convertGeneNameToIndex(dic,geneList):
+    result=[]
+    for gene in geneList:
+        index=dic[gene]
+        result.append(index)
+    return result
+
+
+filteredGenesList=getFinalPruncedGenes(pdGeneNamesList,list(dicOfGenesIndices.values()))
 svmClassifier=SVC()
 GeneDataForClusteringReshaped=GeneDataForClustering.transpose()
-finalXTrain,finalXTest,finalYTrain,finalYTest=train_test_split(GeneDataForClusteringReshaped,y_resampled,test_size=0.4)
+finalXTrain,finalXTest,finalYTrain,finalYTest=train_test_split(GeneDataForClusteringReshaped,trainClassNumericalValues,test_size=0.4)
 svmClassifier.fit(finalXTrain,finalYTrain)
 print(svmClassifier.score(finalXTest,finalYTest))
+saveTrainedModel(svmClassifier,"E:\BioInformatics\TrainedModels\ClusterFeatureModel.pkl")
 
+#Getting Test Data
 
+dicOfGenes=dicOfGenesToIndex(pdGeneNames)
+geneIndices=convertGeneNameToIndex(dicOfGenes,filteredGenesList)
+pdTestDataNormalized=stats.zscore(pdTestFileValues)
+testDataPruned=pdTestDataNormalized[:,geneIndices]
 
-
-
+print(le.inverse_transform(svmClassifier.predict(testDataPruned)))
 
 
 #Genetic Algorithm
@@ -397,15 +424,11 @@ selector = GeneticSelectionCV(estimator,
                                   tournament_size=3,
                                   caching=True,
                                   n_jobs=-1)
-selector.fit(reliefFTransformedFeatures,y_resampled)
-transformedTrainFeatures=selector.transform(reliefFTransformedFeatures)
+selector.fit(kBestFeaturesData,y)
+transformedTrainFeatures=selector.transform(kBestFeaturesData)
 
 
 genXTrain,genXTest,genYTrain,genYTest=train_test_split(transformedTrainFeatures,y,test_size=0.4)
 
 estimator.fit(genXTrain,genYTrain)
 
-testFeatureTransformUsingInformationGain=selectKBest.transform(pdTestFileValues)
-print(estimator.score(genXTest,genYTest))
-finalTransormedTestValues=selector.transform(testFeatureTransformUsingInformationGain)
-estimator.predict(finalTransormedTestValues)
