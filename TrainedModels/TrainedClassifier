@@ -4,17 +4,27 @@ from scipy import stats
 import sys
 from sklearn.externals import joblib
 import os
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
+from sklearn.svm import SVC
 
 
-def getIndicesUsingGeneName(pdTestData,genenames):
+def getGenesNameDictionary(pdTestData):
     pdSNODataDictionary=dict(pdTestData['SNO'])
     resultDic={}
 
     for k,v in pdSNODataDictionary.items():
         resultDic[v]=k
     return resultDic
-
-
+def getIndicesOfGenes(filteredGeneNames,fullGeneFile):
+    geneIndices=[]
+    for filter in range(len(filteredGeneNames)):
+        for  gene in range(len(fullGeneFile)):
+            if filteredGeneNames[filter] ==fullGeneFile[gene]:
+                geneIndices.append(gene)
+    return geneIndices
+labelEncoder=LabelEncoder()
 
 print("Please enter file path using a space(only .csv file allowed) and type ENTER:")
 print("Example  E:\TestData.csv")
@@ -23,19 +33,58 @@ print("Example  E:\TestData.csv")
 trainModelPath="TrainedModels\ClusterFeatureModel.pkl"
 print("Loading Trained model........")
 trainedKmeansModel=joblib.load(trainModelPath)
-trainedGeneNames=[  "D14662_at","D26350_at","D42041_at","D45248_at","D87258_at","J05096_rna1_at",
-                    "L08424_at","L21993_at","L48513_at","M14648_at","M16447_at","M33680_at","M59488_at",
-                    "M62302_at","M63623_at","M63959_at","M84349_at","M93426_at","U06681_at","U07802_at","U24266_at",
-                    "U32331_at","U46499_at","U60975_at","U67156_at","U72661_at","U76456_at","U79294_at","U84540_at",
-                    "U90916_at","X13916_at","X53587_at","X55740_at","X59065_at","X75756_at","X75861_at",
-                    "X84195_at","Z50022_at","D16481_at","D25304_at","X73478_at","J03060_at","D13631_s_at",
-                    "D14826_s_at","M24486_s_at","S69272_s_at","U59877_s_at","U72263_s_at","U76764_s_at",
-                    "AF000424_s_at","X99133_at",
-                ]
-testfileName = input()
-pdTestFileData=pd.read_csv("E:\BioInformatics\pp5i_test.gr.csv")
-pdTestDataOrderByGene=pdTestFileData.transpose()
-Indices=getIndicesUsingGeneName(pdTestFileData,trainedGeneNames)
-pdTestFileStandardized=stats.zscore(pdTestFileData)
+print("Loaded Successfully! ...... trainedKmeansModel")
+trainedGeneNames=[
+"D14043_at",
+"D14662_at",
+"D26350_at",
+"D42041_at",
+"D45248_at",
+"D87258_at",
+"X05908_at",
+"X59065_at",
+"J04543_at",
+"L25081_at",
+"L36818_at",
+"L48513_at",
+"M29927_at",
+"M69066_at",
+"M76378_at",
+"M84349_at",
+"U24266_at",
+"U44772_at",
 
-input("Please ENTER to quit...")
+
+ ]
+
+#testfileName = input()
+pdTestFileData=pd.read_csv("E:\BioInformatics\pp5i_test.gr.csv")
+pdTrainFileData=pd.read_csv("E:\BioInformatics\pp5i_train.gr.csv")
+pdTrainClassData=pd.read_csv("E:\BioInformatics\pp5i_train_class.txt",header=None,sep=" ")
+
+geneIndices=getIndicesOfGenes(trainedGeneNames,pdTrainFileData['SNO'])
+
+labelEncoder.fit(np.asarray(pdTrainClassData[0]))
+trainClassNumericalValues=labelEncoder.transform(pdTrainClassData[0])
+pdTrainFileDataWithoutSNO = pdTrainFileData.drop(['SNO'],axis=1)
+pdTrainFileDataOrderByGenes=pdTrainFileDataWithoutSNO.transpose()
+#pdTestFileStandardized=stats.zscore(pdTestFileData)
+X,y=np.asarray(pdTrainFileDataOrderByGenes),trainClassNumericalValues
+#input("Please ENTER to quit...")
+pdTrainDataNormalized=stats.zscore(pdTrainFileDataOrderByGenes)
+X_filtered=pdTrainDataNormalized[:,geneIndices]
+
+svmClassifier=SVC()
+
+kFoldShuffle= KFold(n_splits=10,shuffle=True)
+accuracy=[]
+for train_index,test_index in kFoldShuffle.split(X_filtered,y):
+    X_train,X_test=X[train_index],X[test_index]
+    y_train,y_test=y[train_index],y[test_index]
+    svmClassifier.fit(X_train,y_train)
+    accuracy.append(svmClassifier.score(X_test,y_test))
+print(np.mean(accuracy))
+
+TestData=np.asarray(pdTestDataNormalized)
+TestDataTransformed=pdTestDataNormalized[:,geneIndices]
+svmClassifier.predict(TestDataTransformed[:,geneIndices])

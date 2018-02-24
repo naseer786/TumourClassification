@@ -120,11 +120,11 @@ y=trainClassNumericalValues
 X_resampled, y_resampled = SMOTE().fit_sample(X, trainClassNumericalValues)
 y_resampled_labels=le.inverse_transform(y_resampled)
 
-pdTrainOrderByGene=pd.DataFrame(X_resampled,columns=pdGeneNamesList)
+pdTrainOrderByGene=pd.DataFrame(X,columns=pdGeneNamesList)
 #pdTrainFileClassValues=pdTrainFileValuesWithGeneColumn[1:]
-pdTrainOrderByGene=pdTrainOrderByGene=pd.DataFrame(X_resampled,columns=pdGeneNamesList)
+pdTrainOrderByGene=pdTrainOrderByGene=pd.DataFrame(X,columns=pdGeneNamesList)
 pdTrainOrderByGeneSample=pdTrainOrderByGene.iloc[:,0:50]
-trainClassNumericalValues=y_resampled_labels
+trainClassNumericalValues=y
 
 pdTrainOrderByGene=X
 pdTrainOrderByGeneSample=X.iloc[:,0:50]
@@ -291,12 +291,14 @@ def clusterScoreOfGenes(geneClusterData,totalClusters):
         extracedGenesData=X[:,geneIndices]
         kFold=KFold(n_splits=10,shuffle=True)
         tempScores=[]
-        for train_index,test_index in kFold.split(extracedGenesData):
-            svmClusterClassifier = SVC()
-            tempXTrain,tempXTest=extracedGenesData[train_index],extracedGenesData[test_index]
-            tempYTrain,tempYTest=y_resampled[train_index],y_resampled[test_index]
-            svmClusterClassifier.fit(tempXTrain,tempYTrain)
-            tempScores.append(svmClusterClassifier.score(tempXTest,tempYTest))
+        for i in range(50):
+            for train_index,test_index in kFold.split(extracedGenesData):
+                svmClusterClassifier = SVC()
+                tempXTrain,tempXTest=extracedGenesData[train_index],extracedGenesData[test_index]
+                tempYTrain,tempYTest=y_resampled[train_index],y_resampled[test_index]
+                svmClusterClassifier.fit(tempXTrain,tempYTrain)
+                tempScores.append(svmClusterClassifier.score(tempXTest,tempYTest))
+
         clusterScoreDic[key] = np.mean(tempScores)
         #xTrain,xTest,yTrain,yTest=train_test_split(extracedGenesData,y,test_size=0.4)
         #svmClusterClassifier.fit(xTrain,yTrain)
@@ -329,7 +331,7 @@ Initial_Clusters=100
 Final_Clusters=10
 Decreate_Rate=0.1
 GeneDataForClustering=kBestFeaturesData.transpose()
-Threshold=0.70
+Threshold=0.7
 dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
 
 
@@ -354,6 +356,7 @@ while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
     GeneDataForClustering,combineGenes,dicOfGenesIndices=combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters)
     GeneDataForClustering=GeneDataForClustering.transpose()
     Initial_Clusters=int(Initial_Clusters-Decreate_Rate*Initial_Clusters)
+    #Initial_Clusters=Initial_Clusters-5
     count+=1
     samples = GeneDataForClustering.shape[1]
     firstDim=GeneDataForClustering.shape[0]
@@ -414,23 +417,32 @@ def writeToCSV(path,geneIndices,geneFileNames):
 filteredGenesList=getFinalPruncedGenes(pdGeneNamesList,list(dicOfGenesIndices.values()))
 svmClassifier=SVC()
 GeneDataForClusteringReshaped=GeneDataForClustering.transpose()
-finalXTrain,finalXTest,finalYTrain,finalYTest=train_test_split(GeneDataForClusteringReshaped,trainClassNumericalValues,test_size=0.4)
-svmClassifier.fit(finalXTrain,finalYTrain)
-print(svmClassifier.score(finalXTest,finalYTest))
+kFoldCrossValidator=KFold(n_splits=10,shuffle=True)
+averageAccuracy=[]
+for train_index,test_index in kFoldCrossValidator.split(GeneDataForClusteringReshaped,y):
+    FinalX_train,FinalX_test=GeneDataForClusteringReshaped[train_index],GeneDataForClusteringReshaped[test_index]
+    FinalY_Train,FinalY_test=y[train_index],y[test_index]
+    svmClassifier.fit(FinalX_train,FinalY_Train)
+    averageAccuracy.append(svmClassifier.score(FinalX_test,FinalY_test))
+print(np.mean(averageAccuracy))
+
+dicOfGenes=dicOfGenesToIndex(pdGeneNames)
+geneIndices=convertGeneNameToIndex(dicOfGenes,filteredGenesList)
+pdTestDataNormalized=stats.zscore(pdTestFileValues)
+testDataPruned=pdTestDataNormalized[:,geneIndices]
+print(le.inverse_transform(svmClassifier.predict(testDataPruned)))
+saveSeletedGenesToFile(geneIndices,rootPath+"/TrainedModels/geneNames.txt",pdGeneNames)
+
+
+
 saveTrainedModel(svmClassifier,"E:\BioInformatics\TrainedModels\ClusterFeatureModel.pkl")
 
 #Getting Test Data
 
-dicOfGenes=dicOfGenesToIndex(pdGeneNames)
-geneIndices=convertGeneNameToIndex(dicOfGenes,filteredGenesList)
+
 saveSelectedGenesIndicesToFile(geneIndices,rootPath+"/TrainedModels/geneIndices.txt",pdGeneNames)
-saveSeletedGenesToFile(geneIndices,rootPath+"/TrainedModels/geneNames.txt",pdGeneNames)
 writeToCSV(rootPath+"/TrainedModels/geneNameIndex.csv",geneIndices,pdGeneNames)
 
-pdTestDataNormalized=stats.zscore(pdTestFileValues)
-testDataPruned=pdTestDataNormalized[:,geneIndices]
-
-print(le.inverse_transform(svmClassifier.predict(testDataPruned)))
 
 
 #Genetic Algorithm
