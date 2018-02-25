@@ -88,3 +88,51 @@ print(np.mean(accuracy))
 TestData=np.asarray(pdTestDataNormalized)
 TestDataTransformed=pdTestDataNormalized[:,geneIndices]
 svmClassifier.predict(TestDataTransformed[:,geneIndices])
+
+
+plotData=  [
+            [31,		0.9476],
+            [60	,	    0.9277],
+            [45	,	    0.919],
+            [39	,	    0.9619],
+            [45	,	    0.9111],
+            [44	,	    0.9079],
+            [59	,	    0.9563],
+            [47	,	    0.9611],
+            [63	,	    0.9809],
+            [43	,	    0.9563],
+            [36	,	    0.9031],
+            [39	,	    0.9277],
+            [39	,	    0.9],
+            [31	,	    0.9285],
+            [64	,	    0.9476],
+            [41	,	    0.9666],
+            [36	,	    0.9087],
+            [19	,	    0.9015],
+            [54	,	    0.942],
+            [26	,	    0.9396]
+
+        ]
+plotData=numpy.asarray(plotData)
+
+fig1 = plt.figure()
+
+# and the first axes using subplot populated with data
+ax1 = fig1.add_subplot(111)
+line1 = ax1.plot(plotData[:,0], 'r')
+plt.ylabel("Gene Count")
+
+# now, the second axes that shares the x-axis with the ax1
+ax2 = fig1.add_subplot(111, sharex=ax1, frameon=False)
+line2 = ax2.plot(plotData[:,1], 'b')
+ax2.yaxis.tick_right()
+ax2.yaxis.set_label_position("right")
+plt.ylabel("Accuracy")
+
+# for the legend, remember that we used two different axes so, we need
+# to build the legend manually
+blue_patch = mpatches.Patch(color='blue', label='Accuracy')
+red_patch = mpatches.Patch(color='red', label='Gene Count')
+plt.legend(handles=[red_patch,blue_patch])
+plt.xlabel("Number if Iterations")
+plt.show()

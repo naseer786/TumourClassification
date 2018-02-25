@@ -10,14 +10,10 @@ from sklearn.svm import SVC,SVR
 from sklearn.model_selection import train_test_split,StratifiedKFold,cross_val_score
 import pickle
 from sklearn.externals import joblib
-from sklearn.feature_selection import RFE
 from sklearn.cluster import KMeans
 from sklearn import cross_validation
 from  sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import mutual_info_classif
-from sklearn.model_selection import LeaveOneOut
-from genetic_selection import GeneticSelectionCV
-from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import KFold
 import skrebate
 import csv
@@ -115,17 +111,11 @@ trainClassNumericalValues=le.transform(pdTrainFileClassValues)
 X=pdTrainOrderByGene
 y=trainClassNumericalValues
 
-#oversampling using SMOTE
-
-X_resampled, y_resampled = SMOTE().fit_sample(X, trainClassNumericalValues)
-y_resampled_labels=le.inverse_transform(y_resampled)
-
 pdTrainOrderByGene=pd.DataFrame(X,columns=pdGeneNamesList)
 #pdTrainFileClassValues=pdTrainFileValuesWithGeneColumn[1:]
 pdTrainOrderByGene=pdTrainOrderByGene=pd.DataFrame(X,columns=pdGeneNamesList)
 pdTrainOrderByGeneSample=pdTrainOrderByGene.iloc[:,0:50]
 trainClassNumericalValues=y
-
 pdTrainOrderByGene=X
 pdTrainOrderByGeneSample=X.iloc[:,0:50]
 
@@ -179,19 +169,18 @@ figNormalizedGenes.savefig("BoxPlot Normalized Genes(1-50) Expression Data.png")
 # Make Frequency Distribution of class values
 
 makePlotOfClassValues(pdTrainFileClassValues,"frequency_distribution_class_wise.png")
-makePlotOfClassValues(y_resampled_labels,"Resampled_frequency_distribution_class_wise.png")
 
 # Plotting Data using Hierarchical Clustering
 
-mergings=linkage(pdTrainFileValues,method="complete")
-dendrogram(mergings)
+#mergings=linkage(pdTrainFileValues,method="complete")
+#dendrogram(mergings)
 
 
 
 #Feature Selection Using Information Gain
 X,y=pdTrainOrderByGeneNormalized,trainClassNumericalValues
 
-FeaturesToBeSelected=1000
+FeaturesToBeSelected=500
 selectKBest=SelectKBest(mutual_info_classif, k=FeaturesToBeSelected).fit(X,y)
 featureScores=selectKBest.scores_
 dictOfKBestFeatures=selectKBestWithFeaturesWithIndices(featureScores,FeaturesToBeSelected)
@@ -199,77 +188,6 @@ sortedKeys=sorted(dictOfKBestFeatures.keys())
 kBestFeaturesData=selectKBest.transform(X)
 selectedGenesNamesUsingKBest=list(pdGeneNames[sortedKeys])
 dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
-
-
-#Feature Selection Using Correlation Based Filter Methods
-
-reliefFFeaures=500
-reliefFNeighbours=100
-reliefFFeaures=skrebate.ReliefF(n_features_to_select=reliefFFeaures,n_neighbors=reliefFNeighbours)
-reliefFFeauresFitted=reliefFFeaures.fit(kBestFeaturesData,y)
-reliefFTransformedFeatures=reliefFFeauresFitted.transform(kBestFeaturesData)
-#Creating Dendogram of the Gene Data
-#mergings=linkage(kBestFeaturesData.transpose(),method="complete")
-#dendrogram(mergings,leaf_rotation=90.,leaf_font_size=12.,labels=selectedGenesNamesUsingKBest)
-
-
-
-#Using Leave One out for checking accuracy
-featureScoreUsingInformationGain=[]
-leaveOneOut=LeaveOneOut()
-for train_index,test_index in leaveOneOut.split(kBestFeaturesData):
-    svmClassifier = SVC()
-    XTrain,XTest=kBestFeaturesData[train_index],kBestFeaturesData[test_index]
-    YTrain,YTest=y[train_index],y[test_index]
-    svmClassifier.fit(XTrain,YTrain)
-    featureScoreUsingInformationGain.append(svmClassifier.score(XTest,YTest))
-
-#Basline Classifier for Gene Expression Dataset
-
-X_train,X_test,Y_train,Y_test=train_test_split(selectedKBestFeatures,y,test_size=0.5)
-
-svmClassifier.fit(X_train,Y_train)
-
-score=svmClassifier.score(X_test,Y_test)
-print(scores.mean())
-
-baselineSVMTrainedModel = svmClassifier.fit(X_train, Y_train)
-SPLITS=10
-baseStratifiedKFold=StratifiedKFold(n_splits=SPLITS)
-baseStratifiedKFold.get_n_splits(X,y)
-stratifiedKCrossAccuracy=np.zeros(SPLITS)
-index=0
-for train_index,test_index in baseStratifiedKFold.split(X,y):
-    X_train,X_test=X[train_index],X[test_index]
-    Y_train, Y_test = y[train_index], y[test_index]
-    svmClassifier = SVC()
-    baselineSVMTrainedModel=svmClassifier.fit(X_train,Y_train)
-    stratifiedKCrossAccuracy[index]=baselineSVMTrainedModel.score(X_test,Y_test)
-    print("Basline Accuracy of SVM Classifier each stratum:",baselineSVMTrainedModel.score(X_test,Y_test))
-    index+=1
-
-#Saving Baseline classifier model in the disk using sklean.joblib
-absoluteBaselineTrainedModelPath=trainedModelPath+"/baselineSVMTrainedModel.pkl"
-saveTrainedModel(baselineSVMTrainedModel,absoluteBaselineTrainedModelPath)
-
-# Recursive Feature Selection
-
-k=50
-for i in range(100):
-    recursiveFeatureSelection=RFE(estimator=SVR,n_features_to_select=k,step=0.2,verbose=0)
-    recursiveFeatureSelection.fit(X,y)
-    recursiveReducedX=recursiveFeatureSelection.transform(X)
-    recReduced_Xtrain,recReduced_Xtest,recReduced_YTrain,recReduced_YTest=train_test_split(recursiveReducedX,y,test_size=0.2)
-    svmClassifier.fit(recReduced_Xtrain,recReduced_YTrain)
-    print("Features Selected:", k)
-    print("train_accuracy:",svmClassifier.score(recReduced_Xtrain,recReduced_YTrain))
-    print("test_accuracy:",svmClassifier.score(recReduced_Xtest,recReduced_YTest))
-    print("------------------------------------------------------------------------")
-    #  svmClassifier.score(recReduced_Xtrain,recReduced_YTrain)
-    # svmClassifier.score(recReduced_Xtest,recReduced_YTest)
-    k+=10
-
-
 
 
 
@@ -324,54 +242,6 @@ def combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters):
         dicOfGenesIndicesTemp[index]=listOfGenes[index]
     return X[:,listOfGenes],listOfGenes,dicOfGenesIndicesTemp
 
-
-
-# Apply Kmeans Clustering
-Initial_Clusters=100
-Final_Clusters=10
-Decreate_Rate=0.1
-GeneDataForClustering=kBestFeaturesData.transpose()
-Threshold=0.7
-dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
-
-
-count=1
-samples=kBestFeaturesData.shape[0]
-firstDim = GeneDataForClustering.shape[0]
-K=1
-
-#print("**********************************************************************")
-#print(" Attempt:", K,"To Find Features < 100....")
-while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
-    print("Iteration.....:",count)
-    print("Initial Clusters...:",Initial_Clusters)
-    print("Final Clusters...:", Final_Clusters)
-    print("Data Shape...:",GeneDataForClustering.shape)
-    print("Features....",len(dicOfGenesIndices))
-    kmeansCluster=KMeans(n_clusters=Initial_Clusters,max_iter=600,n_init=60)
-    kmeansCluster.fit(GeneDataForClustering)
-    dicOfGenesWithClusters=joinGenesWithClusters(kmeansCluster.labels_,Initial_Clusters,dicOfGenesIndices)
-    clusterScore=clusterScoreOfGenes(dicOfGenesWithClusters,Initial_Clusters)
-    filteredClusters=filterClustersWithThreshold(clusterScore,Threshold)
-    GeneDataForClustering,combineGenes,dicOfGenesIndices=combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters)
-    GeneDataForClustering=GeneDataForClustering.transpose()
-    Initial_Clusters=int(Initial_Clusters-Decreate_Rate*Initial_Clusters)
-    #Initial_Clusters=Initial_Clusters-5
-    count+=1
-    samples = GeneDataForClustering.shape[1]
-    firstDim=GeneDataForClustering.shape[0]
-    print("___________________________________________________________")
-    #count=1
-    #Initial_Clusters = 600
-    #Final_Clusters = 10
-    #Decreate_Rate = 0.03
-    #GeneDataForClustering = kBestFeaturesData.transpose()
-    #Threshold = 0.75
-    #dicOfGenesIndices = convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
-    #samples = kBestFeaturesData.shape[0]
-    #firstDim = GeneDataForClustering.shape[0]
-    #K+=1
-
 def getFinalPruncedGenes(geneNameList,indices):
     finalGenes=[]
     for i in range(len(indices)):
@@ -392,80 +262,195 @@ def convertGeneNameToIndex(dic,geneList):
         result.append(index)
     return result
 def saveSeletedGenesToFile(indices,path,geneFileNames):
+    listOfGenes=[]
     f=open(path,'w')
     for index in indices:
         val=geneFileNames[index]
+        listOfGenes.append(val)
         f.write(val+"\n")
     f.close()
+    return listOfGenes
 def saveSelectedGenesIndicesToFile(indices,path,geneFileNames):
     f=open(path,'w')
     for index in indices:
         f.write(str(index)+"\n")
     f.close()
-
-def writeToCSV(path,geneIndices,geneFileNames):
-    with open(path,'w') as csvFile:
-        fieldnames = ['GeneIndex', 'GeneName']
-        writer=csv.DictWriter(csvFile,fieldnames=fieldnames)
-        writer.writeheader()
-        for index in geneIndices:
-            val=geneFileNames[index]
-            writer.writerow({fieldnames[0]:index,fieldnames[1]:val})
-
-
-
-filteredGenesList=getFinalPruncedGenes(pdGeneNamesList,list(dicOfGenesIndices.values()))
-svmClassifier=SVC()
-GeneDataForClusteringReshaped=GeneDataForClustering.transpose()
-kFoldCrossValidator=KFold(n_splits=10,shuffle=True)
-averageAccuracy=[]
-for train_index,test_index in kFoldCrossValidator.split(GeneDataForClusteringReshaped,y):
-    FinalX_train,FinalX_test=GeneDataForClusteringReshaped[train_index],GeneDataForClusteringReshaped[test_index]
-    FinalY_Train,FinalY_test=y[train_index],y[test_index]
-    svmClassifier.fit(FinalX_train,FinalY_Train)
-    averageAccuracy.append(svmClassifier.score(FinalX_test,FinalY_test))
-print(np.mean(averageAccuracy))
-
-dicOfGenes=dicOfGenesToIndex(pdGeneNames)
-geneIndices=convertGeneNameToIndex(dicOfGenes,filteredGenesList)
-pdTestDataNormalized=stats.zscore(pdTestFileValues)
-testDataPruned=pdTestDataNormalized[:,geneIndices]
-print(le.inverse_transform(svmClassifier.predict(testDataPruned)))
-saveSeletedGenesToFile(geneIndices,rootPath+"/TrainedModels/geneNames.txt",pdGeneNames)
+def saveFullGeneList(geneList,path):
+    fileFullGene = open(path, 'w')
+    for gene in geneList:
+        fileFullGene.write(gene + "\n")
+    fileFullGene.close()
+def saveGeneClusterCountToFile(dicOfGeneClusters,path):
+    file_cluster_gene = open(path, 'w')
+    dicCluster={}
+    for key, var in dic_gene_clusters.items():
+        listOfGenesCount = dic_gene_clusters[key]
+        if(len(listOfGenesCount))!=-0:
+            meanGeneCount = int(np.mean(listOfGenesCount))
+            dicCluster[key]=meanGeneCount
+    file_cluster_gene.write(str(dicCluster))
+    file_cluster_gene.close()
 
 
+def selectedGenesDictionary(path):
+    file=open(path,'w')
+    dic_of_genes={}
+    for gene in file.read():
+        if gene not in dic_of_genes:
+            dic_of_genes[gene]=1
+        else:
+            dic_of_genes[gene]=0
+    file.close()
+    return dic_of_genes
 
-saveTrainedModel(svmClassifier,"E:\BioInformatics\TrainedModels\ClusterFeatureModel.pkl")
+def getFreqDistAndTopNValues(pdDataList,n):
+    freqDist={}
+    genesSelected=[]
+    for gene in pdDataList:
+       if gene in freqDist:
+           freqDist[gene]+=1
+       else:
+           freqDist[gene]=0
+    freqDist = sorted(freqDist.items(), key=lambda x: x[1],reverse=True)
+    for k,v in freqDist[:n]:
+        genesSelected.append(k)
+    return freqDist,genesSelected
 
-#Getting Test Data
-
-
-saveSelectedGenesIndicesToFile(geneIndices,rootPath+"/TrainedModels/geneIndices.txt",pdGeneNames)
-writeToCSV(rootPath+"/TrainedModels/geneNameIndex.csv",geneIndices,pdGeneNames)
-
-
-
-#Genetic Algorithm
-
-estimator=SVC()
-selector = GeneticSelectionCV(estimator,
-                                  cv=5,
-                                  verbose=1,
-                                  scoring="accuracy",
-                                  n_population=50,
-                                  crossover_proba=0.5,
-                                  mutation_proba=0.2,
-                                  n_generations=40,
-                                  crossover_independent_proba=0.5,
-                                  mutation_independent_proba=0.05,
-                                  tournament_size=3,
-                                  caching=True,
-                                  n_jobs=-1)
-selector.fit(kBestFeaturesData,y)
-transformedTrainFeatures=selector.transform(kBestFeaturesData)
+def getIndicesOfGenes(filteredGeneNames,fullGeneFile):
+    geneIndices=[]
+    for filter in range(len(filteredGeneNames)):
+        for  gene in range(len(fullGeneFile)):
+            if filteredGeneNames[filter] ==fullGeneFile[gene]:
+                geneIndices.append(gene)
+    return geneIndices
 
 
-genXTrain,genXTest,genYTrain,genYTest=train_test_split(transformedTrainFeatures,y,test_size=0.4)
 
-estimator.fit(genXTrain,genYTrain)
 
+
+# Apply Kmeans Clustering
+Initial_Clusters=100
+Final_Clusters=10
+Decreate_Rate=0.1
+GeneDataForClustering=kBestFeaturesData.transpose()
+Threshold=0.75
+dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
+dic_gene_clusters={}
+M=Initial_Clusters
+N=Final_Clusters
+R=Decreate_Rate
+while(M>N):
+    dic_gene_clusters[M]=[]
+    M=int(M-R*M)
+
+
+
+count=1
+samples=kBestFeaturesData.shape[0]
+firstDim = GeneDataForClustering.shape[0]
+mainLoopControl=0
+cluster_gene_dist={}
+accuracyPath = rootPath + "/TrainedModels/Accuracy/Accuracy_Genes.txt"
+fileAccuracy = open(accuracyPath, 'w')
+dic_Accuracy_genes={}
+
+fullGeneList=[]
+
+
+
+while mainLoopControl<0:
+
+
+    print("**************************************************")
+    #print(" Attempt:", K,"To Find Features < 100....")
+    while (Initial_Clusters>Final_Clusters) and (firstDim>Initial_Clusters)  :
+        print("Iteration.....:",count)
+        print("Initial Clusters...:",Initial_Clusters)
+        print("Final Clusters...:", Final_Clusters)
+        print("Data Shape...:",GeneDataForClustering.shape)
+        print("Features....",len(dicOfGenesIndices))
+        kmeansCluster=KMeans(n_clusters=Initial_Clusters,max_iter=600,n_init=60)
+        kmeansCluster.fit(GeneDataForClustering)
+        dicOfGenesWithClusters=joinGenesWithClusters(kmeansCluster.labels_,Initial_Clusters,dicOfGenesIndices)
+        clusterScore=clusterScoreOfGenes(dicOfGenesWithClusters,Initial_Clusters)
+        filteredClusters=filterClustersWithThreshold(clusterScore,Threshold)
+        GeneDataForClustering,combineGenes,dicOfGenesIndices=combinedGenesUsingClusters(filteredClusters,dicOfGenesWithClusters)
+        GeneDataForClustering=GeneDataForClustering.transpose()
+        Initial_Clusters=int(Initial_Clusters-Decreate_Rate*Initial_Clusters)
+        samples = GeneDataForClustering.shape[1]
+        firstDim = GeneDataForClustering.shape[0]
+        dic_gene_clusters[Initial_Clusters].append(firstDim)
+        count+=1
+        print("___________________________________________________________")
+    filteredGenesList=getFinalPruncedGenes(pdGeneNamesList,list(dicOfGenesIndices.values()))
+    svmClassifier=SVC()
+    GeneDataForClusteringReshaped=GeneDataForClustering.transpose()
+    kFoldCrossValidator=KFold(n_splits=10,shuffle=True)
+    averageAccuracy=[]
+    for i in range(3):
+        for train_index,test_index in kFoldCrossValidator.split(GeneDataForClusteringReshaped,y):
+            FinalX_train,FinalX_test=GeneDataForClusteringReshaped[train_index],GeneDataForClusteringReshaped[test_index]
+            FinalY_Train,FinalY_test=y[train_index],y[test_index]
+            svmClassifier.fit(FinalX_train,FinalY_Train)
+            averageAccuracy.append(svmClassifier.score(FinalX_test,FinalY_test))
+    if np.mean(averageAccuracy)>=0.9:
+        dic_Accuracy_genes[mainLoopControl]=str(np.mean(averageAccuracy))+","+str(firstDim)
+        mainLoopControl+=1
+        print("Passed......",mainLoopControl)
+        print("Accuracy:",np.mean(averageAccuracy))
+        dicOfGenes=dicOfGenesToIndex(pdGeneNames)
+        geneIndices=convertGeneNameToIndex(dicOfGenes,filteredGenesList)
+        pdTestDataNormalized=stats.zscore(pdTestFileValues)
+        testDataPruned=pdTestDataNormalized[:,geneIndices]
+        print(le.inverse_transform(svmClassifier.predict(testDataPruned)))
+        geneName="/TrainedModels/GeneNames/geneNames_"+str(mainLoopControl)+".txt"
+        geneIndex="/TrainedModels/GeneIndices/geneIndices_"+str(mainLoopControl)+".txt"
+        geneAccuracy=str(firstDim)+","+str(np.mean(averageAccuracy))
+        genesNamePath=  rootPath+geneName
+        genesIndexPath =rootPath+geneIndex
+        genesExtracted=saveSeletedGenesToFile(geneIndices,genesNamePath,pdGeneNames)
+        for gene in genesExtracted:
+            fullGeneList.append(gene)
+        saveSelectedGenesIndicesToFile(geneIndices,genesIndexPath,pdGeneNames)
+
+
+    Initial_Clusters=100
+    Final_Clusters=10
+    Decreate_Rate=0.1
+    GeneDataForClustering=kBestFeaturesData.transpose()
+    Threshold=0.7
+    dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
+    count=1
+    samples=kBestFeaturesData.shape[0]
+    firstDim = GeneDataForClustering.shape[0]
+    #Getting Test Data
+
+fileAccuracy.write(str(dic_Accuracy_genes))
+fileAccuracy.close()
+
+saveFullGeneList(fullGeneList,rootPath + "/TrainedModels/FullGeneList/FullGenes.txt")
+saveGeneClusterCountToFile(dic_gene_clusters,rootPath + "/TrainedModels/Accuracy/Cluster_Genes.txt")
+
+fullGenePath=rootPath+"/TrainedModels/FullGeneList/FullGenes.txt"
+pdAllSelectedGeneSet=pd.read_csv(fullGenePath,sep=" ",header=None)
+
+
+FinalGenesCount=25
+freqDistOfSelectedGenes,TopGenes=getFreqDistAndTopNValues((list(pdAllSelectedGeneSet[0])),FinalGenesCount)
+geneIndices=getIndicesOfGenes(TopGenes,pdGeneNames)
+X_Selected=X[:,geneIndices]
+
+
+svmRCEClassifer=SVC()
+finalAccuracy=[]
+for train_index, test_index in kFoldCrossValidator.split(X_Selected, y):
+    FinalX_train, FinalX_test = GeneDataForClusteringReshaped[train_index], GeneDataForClusteringReshaped[test_index]
+    FinalY_Train, FinalY_test = y[train_index], y[test_index]
+    svmRCEClassifer.fit(FinalX_train, FinalY_Train)
+    finalAccuracy.append(svmRCEClassifer.score(FinalX_test, FinalY_test))
+print(np.mean(finalAccuracy))
+
+saveTrainedModel(svmRCEClassifer,rootPath+"/TrainedModels/Model/svm-rce.pkl")
+
+mergings=linkage(X_Selected.transpose(),method="complete")
+dendrogram(mergings,labels=TopGenes)
