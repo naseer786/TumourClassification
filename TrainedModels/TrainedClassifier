@@ -17,6 +17,7 @@ def getGenesNameDictionary(pdTestData):
     for k,v in pdSNODataDictionary.items():
         resultDic[v]=k
     return resultDic
+
 def getIndicesOfGenes(filteredGeneNames,fullGeneFile):
     geneIndices=[]
     for filter in range(len(filteredGeneNames)):
@@ -24,115 +25,80 @@ def getIndicesOfGenes(filteredGeneNames,fullGeneFile):
             if filteredGeneNames[filter] ==fullGeneFile[gene]:
                 geneIndices.append(gene)
     return geneIndices
-labelEncoder=LabelEncoder()
-
-print("Please enter file path using a space(only .csv file allowed) and type ENTER:")
-print("Example  E:\TestData.csv")
 
 
-trainModelPath="TrainedModels\ClusterFeatureModel.pkl"
+def getFreqDistAndTopNValues(pdDataList,n):
+    freqDist={}
+    genesSelected=[]
+    for gene in pdDataList:
+       if gene in freqDist:
+           freqDist[gene]+=1
+       else:
+           freqDist[gene]=0
+    freqDist = sorted(freqDist.items(), key=lambda x: x[1],reverse=True)
+    for k,v in freqDist[:n]:
+        genesSelected.append(k)
+    return freqDist,genesSelected
+
+
+#Label encoder to properly predict the class in text format
+le=LabelEncoder()
+pdTrainesClassName="pp5i_train_class.txt"
+pdTrainFileClassValues=pd.read_csv(pdTrainesClassName,header=None,sep=" ")
+le.fit(pdTrainFileClassValues)
+
+pdFullGene=pd.read_csv("TrainedModels\FullGeneList\FullGenes.txt",sep=" ",header=None)
+fd,topGenes=getFreqDistAndTopNValues(list(pdFullGene[0]),25)
+
+
+
+print("Please read README.txt file for the details of test data format")
+print("Please Enter the Testing Data into the TestData Folder and name it to pp5i_test.gr    file should be in csv format")
+
+
+#Loading Trained Model
+trainModelPath="TrainedModels\Model\svm-rce.pkl"
 print("Loading Trained model........")
 trainedKmeansModel=joblib.load(trainModelPath)
 print("Loaded Successfully! ...... trainedKmeansModel")
-trainedGeneNames=[
-"D14043_at",
-"D14662_at",
-"D26350_at",
-"D42041_at",
-"D45248_at",
-"D87258_at",
-"X05908_at",
-"X59065_at",
-"J04543_at",
-"L25081_at",
-"L36818_at",
-"L48513_at",
-"M29927_at",
-"M69066_at",
-"M76378_at",
-"M84349_at",
-"U24266_at",
-"U44772_at",
 
 
- ]
-
-#testfileName = input()
-pdTestFileData=pd.read_csv("E:\BioInformatics\pp5i_test.gr.csv")
-pdTrainFileData=pd.read_csv("E:\BioInformatics\pp5i_train.gr.csv")
-pdTrainClassData=pd.read_csv("E:\BioInformatics\pp5i_train_class.txt",header=None,sep=" ")
-
-geneIndices=getIndicesOfGenes(trainedGeneNames,pdTrainFileData['SNO'])
-
-labelEncoder.fit(np.asarray(pdTrainClassData[0]))
-trainClassNumericalValues=labelEncoder.transform(pdTrainClassData[0])
-pdTrainFileDataWithoutSNO = pdTrainFileData.drop(['SNO'],axis=1)
-pdTrainFileDataOrderByGenes=pdTrainFileDataWithoutSNO.transpose()
-#pdTestFileStandardized=stats.zscore(pdTestFileData)
-X,y=np.asarray(pdTrainFileDataOrderByGenes),trainClassNumericalValues
-#input("Please ENTER to quit...")
-pdTrainDataNormalized=stats.zscore(pdTrainFileDataOrderByGenes)
-X_filtered=pdTrainDataNormalized[:,geneIndices]
-
-svmClassifier=SVC()
-
-kFoldShuffle= KFold(n_splits=10,shuffle=True)
-accuracy=[]
-for train_index,test_index in kFoldShuffle.split(X_filtered,y):
-    X_train,X_test=X[train_index],X[test_index]
-    y_train,y_test=y[train_index],y[test_index]
-    svmClassifier.fit(X_train,y_train)
-    accuracy.append(svmClassifier.score(X_test,y_test))
-print(np.mean(accuracy))
-
-TestData=np.asarray(pdTestDataNormalized)
-TestDataTransformed=pdTestDataNormalized[:,geneIndices]
-svmClassifier.predict(TestDataTransformed[:,geneIndices])
 
 
-plotData=  [
-            [31,		0.9476],
-            [60	,	    0.9277],
-            [45	,	    0.919],
-            [39	,	    0.9619],
-            [45	,	    0.9111],
-            [44	,	    0.9079],
-            [59	,	    0.9563],
-            [47	,	    0.9611],
-            [63	,	    0.9809],
-            [43	,	    0.9563],
-            [36	,	    0.9031],
-            [39	,	    0.9277],
-            [39	,	    0.9],
-            [31	,	    0.9285],
-            [64	,	    0.9476],
-            [41	,	    0.9666],
-            [36	,	    0.9087],
-            [19	,	    0.9015],
-            [54	,	    0.942],
-            [26	,	    0.9396]
+#Loading Testing Data
+pdTestDataName="TestData\pp5i_test.gr.csv"
+pdTestFileData=pd.read_csv(pdTestDataName)
+pdTestDataWithoutSNO = pdTestFileData.drop(['SNO'],axis=1)
+pdTestDataNormalized=stats.zscore(pdTestDataWithoutSNO)
 
-        ]
-plotData=numpy.asarray(plotData)
+#Get Indices of the Genes
+geneIndices=getIndicesOfGenes(topGenes,pdTestFileData['SNO'])
 
-fig1 = plt.figure()
 
-# and the first axes using subplot populated with data
-ax1 = fig1.add_subplot(111)
-line1 = ax1.plot(plotData[:,0], 'r')
-plt.ylabel("Gene Count")
 
-# now, the second axes that shares the x-axis with the ax1
-ax2 = fig1.add_subplot(111, sharex=ax1, frameon=False)
-line2 = ax2.plot(plotData[:,1], 'b')
-ax2.yaxis.tick_right()
-ax2.yaxis.set_label_position("right")
-plt.ylabel("Accuracy")
+#convert to numpy Array
+X_test=np.asarray(pdTestDataNormalized.transpose())
 
-# for the legend, remember that we used two different axes so, we need
-# to build the legend manually
-blue_patch = mpatches.Patch(color='blue', label='Accuracy')
-red_patch = mpatches.Patch(color='red', label='Gene Count')
-plt.legend(handles=[red_patch,blue_patch])
-plt.xlabel("Number if Iterations")
-plt.show()
+
+X_test_selected=X_test[:,geneIndices]
+
+
+
+
+
+
+
+print(le.inverse_transform(trainedKmeansModel.predict(X_test_selected)))
+
+
+
+
+
+
+
+
+
+
+
+
+

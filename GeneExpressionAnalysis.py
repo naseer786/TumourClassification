@@ -1,3 +1,5 @@
+
+#...............................Modules to be imported
 import  pandas as pd
 import  numpy
 import numpy as np
@@ -19,7 +21,7 @@ import skrebate
 import csv
 
 
-
+#..................................................Functions to be used in
 
 def makePlotOfClassValues(listOfClassValues,plotName):
     dicOfClassLabels = {}
@@ -80,114 +82,6 @@ def convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures):
         count+=1
     return dicOfGenesIndex
 
-# Root Path and Names of Individual File Names
-rootPath='E:/BioInformatics'
-trainFileName='pp5i_train.gr.csv'
-trainFileClassName='pp5i_train_class.txt'
-testFileName='pp5i_test.gr.csv'
-trainedModelPath=rootPath+"/"+"TrainedModels"
-
-#Creating absolute Path from the relative Path
-trainFilePath=rootPath+'/'+trainFileName
-trainFileClassPath=rootPath+'/'+trainFileClassName
-testFilePath=rootPath+'/'+testFileName
-
-#Reading values in pandas data frame
-pdTrainFileValuesWithGeneColumn=pd.read_csv(trainFilePath)
-pdTrainFileClassValues=pd.read_csv(trainFileClassPath,header=None,sep=" ")
-pdTestFileValues=pd.read_csv(testFilePath)
-
-pdGeneNames=pdTrainFileValuesWithGeneColumn['SNO']
-pdGeneNamesList=list(pdGeneNames)
-pdTrainFileValues=pdTrainFileValuesWithGeneColumn.drop(["SNO"],axis=1)
-
-pdTrainOrderByGene=pdTrainFileValues.transpose()
-# Encoding Train Class label Data to Numeric
-
-le=preprocessing.LabelEncoder()
-le.fit(pdTrainFileClassValues)
-trainClassNumericalValues=le.transform(pdTrainFileClassValues)
-
-X=pdTrainOrderByGene
-y=trainClassNumericalValues
-
-pdTrainOrderByGene=pd.DataFrame(X,columns=pdGeneNamesList)
-#pdTrainFileClassValues=pdTrainFileValuesWithGeneColumn[1:]
-pdTrainOrderByGene=pdTrainOrderByGene=pd.DataFrame(X,columns=pdGeneNamesList)
-pdTrainOrderByGeneSample=pdTrainOrderByGene.iloc[:,0:50]
-trainClassNumericalValues=y
-pdTrainOrderByGene=X
-pdTrainOrderByGeneSample=X.iloc[:,0:50]
-
-
-
-
-
-
-#Displaying boxplot of Data
-
-
-
-
-
-figRawGenes = plt.figure(1)
-figRawGenes.suptitle('BoxPlot', fontsize=14, fontweight='bold')
-axRawGenes = figRawGenes.add_subplot(111)
-axRawGenes.boxplot(pdTrainOrderByGeneSample)
-axRawGenes.set_title('Gene Expression Dataset')
-axRawGenes.set_xlabel('Genes 1 to 50')
-axRawGenes.set_ylabel('Gene Expression Values')
-
-figRawGenes.savefig("BoxPlot Raw Genes(1-50) Expression Data.png")
-
-pdTrainFileValues=pdTrainFileValues.transpose()
-pdTestFileValues=pdTestFileValues.drop(["SNO"],axis=1)
-pdTestFileValues=pdTestFileValues.transpose()
-pdTrainFileValues.shape,pdTrainFileClassValues.shape,pdTestFileValues.shape
-
-
-
-# Transformation Normalization
-
-pdTrainOrderByGeneNormalized=stats.zscore(pdTrainOrderByGene)
-
-pdTrainOrderByGeneNormalizedSample=pdTrainOrderByGeneNormalized[:,0:50]
-figNormalizedGenes = plt.figure(2)
-figNormalizedGenes.suptitle('BoxPlot', fontsize=14, fontweight='bold')
-axNormalizedGenes = figNormalizedGenes.add_subplot(111)
-axNormalizedGenes.boxplot(pdTrainOrderByGeneNormalizedSample)
-axNormalizedGenes.set_title('Normalized Gene Expression Dataset')
-axNormalizedGenes.set_xlabel('Genes 1 to 50')
-axNormalizedGenes.set_ylabel('Normalized Gene Expression Values')
-figNormalizedGenes.savefig("BoxPlot Normalized Genes(1-50) Expression Data.png")
-
-
-
-
-
-
-# Make Frequency Distribution of class values
-
-makePlotOfClassValues(pdTrainFileClassValues,"frequency_distribution_class_wise.png")
-
-# Plotting Data using Hierarchical Clustering
-
-#mergings=linkage(pdTrainFileValues,method="complete")
-#dendrogram(mergings)
-
-
-
-#Feature Selection Using Information Gain
-X,y=pdTrainOrderByGeneNormalized,trainClassNumericalValues
-
-FeaturesToBeSelected=500
-selectKBest=SelectKBest(mutual_info_classif, k=FeaturesToBeSelected).fit(X,y)
-featureScores=selectKBest.scores_
-dictOfKBestFeatures=selectKBestWithFeaturesWithIndices(featureScores,FeaturesToBeSelected)
-sortedKeys=sorted(dictOfKBestFeatures.keys())
-kBestFeaturesData=selectKBest.transform(X)
-selectedGenesNamesUsingKBest=list(pdGeneNames[sortedKeys])
-dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
 
 
 
@@ -325,6 +219,120 @@ def getIndicesOfGenes(filteredGeneNames,fullGeneFile):
     return geneIndices
 
 
+#...................................................................................
+
+
+
+
+# Root Path and Names of Individual File Names
+rootPath='E:/BioInformatics'            #This path should be changes based on location of the files
+trainFileName='pp5i_train.gr.csv'
+trainFileClassName='pp5i_train_class.txt'
+testFileName='pp5i_test.gr.csv'
+trainedModelPath=rootPath+"/"+"TrainedModels"
+
+#Creating absolute Path from the relative Path
+trainFilePath=rootPath+'/'+trainFileName
+trainFileClassPath=rootPath+'/'+trainFileClassName
+testFilePath=rootPath+'/'+testFileName
+
+#Reading values in pandas data frame
+pdTrainFileValuesWithGeneColumn=pd.read_csv(trainFilePath)
+pdTrainFileClassValues=pd.read_csv(trainFileClassPath,header=None,sep=" ")
+pdTestFileValues=pd.read_csv(testFilePath)
+
+pdGeneNames=pdTrainFileValuesWithGeneColumn['SNO']
+pdGeneNamesList=list(pdGeneNames)
+pdTrainFileValues=pdTrainFileValuesWithGeneColumn.drop(["SNO"],axis=1)
+
+pdTrainOrderByGene=pdTrainFileValues.transpose()
+# Encoding Train Class label Data to Numeric
+
+le=preprocessing.LabelEncoder()
+le.fit(pdTrainFileClassValues)
+trainClassNumericalValues=le.transform(pdTrainFileClassValues)
+
+X=pdTrainOrderByGene
+y=trainClassNumericalValues
+
+pdTrainOrderByGene=pd.DataFrame(X,columns=pdGeneNamesList)
+#pdTrainFileClassValues=pdTrainFileValuesWithGeneColumn[1:]
+pdTrainOrderByGene=pdTrainOrderByGene=pd.DataFrame(X,columns=pdGeneNamesList)
+pdTrainOrderByGeneSample=pdTrainOrderByGene.iloc[:,0:50]
+trainClassNumericalValues=y
+pdTrainOrderByGene=X
+pdTrainOrderByGeneSample=X.iloc[:,0:50]
+
+
+
+
+
+
+#Displaying boxplot of Data
+
+
+
+
+
+figRawGenes = plt.figure(1)
+figRawGenes.suptitle('BoxPlot', fontsize=14, fontweight='bold')
+axRawGenes = figRawGenes.add_subplot(111)
+axRawGenes.boxplot(pdTrainOrderByGeneSample)
+axRawGenes.set_title('Gene Expression Dataset')
+axRawGenes.set_xlabel('Genes 1 to 50')
+axRawGenes.set_ylabel('Gene Expression Values')
+
+figRawGenes.savefig("BoxPlot Raw Genes(1-50) Expression Data.png")
+
+pdTrainFileValues=pdTrainFileValues.transpose()
+pdTestFileValues=pdTestFileValues.drop(["SNO"],axis=1)
+pdTestFileValues=pdTestFileValues.transpose()
+pdTrainFileValues.shape,pdTrainFileClassValues.shape,pdTestFileValues.shape
+
+
+
+# Transformation Normalization
+
+pdTrainOrderByGeneNormalized=stats.zscore(pdTrainOrderByGene)
+
+pdTrainOrderByGeneNormalizedSample=pdTrainOrderByGeneNormalized[:,0:50]
+figNormalizedGenes = plt.figure(2)
+figNormalizedGenes.suptitle('BoxPlot', fontsize=14, fontweight='bold')
+axNormalizedGenes = figNormalizedGenes.add_subplot(111)
+axNormalizedGenes.boxplot(pdTrainOrderByGeneNormalizedSample)
+axNormalizedGenes.set_title('Normalized Gene Expression Dataset')
+axNormalizedGenes.set_xlabel('Genes 1 to 50')
+axNormalizedGenes.set_ylabel('Normalized Gene Expression Values')
+figNormalizedGenes.savefig("BoxPlot Normalized Genes(1-50) Expression Data.png")
+
+
+
+
+
+
+# Make Frequency Distribution of class values
+
+makePlotOfClassValues(pdTrainFileClassValues,"frequency_distribution_class_wise.png")
+
+# Plotting Data using Hierarchical Clustering
+
+#mergings=linkage(pdTrainFileValues,method="complete")
+#dendrogram(mergings)
+
+
+
+#Feature Selection Using Information Gain
+X,y=pdTrainOrderByGeneNormalized,trainClassNumericalValues
+
+FeaturesToBeSelected=500
+selectKBest=SelectKBest(mutual_info_classif, k=FeaturesToBeSelected).fit(X,y)
+featureScores=selectKBest.scores_
+dictOfKBestFeatures=selectKBestWithFeaturesWithIndices(featureScores,FeaturesToBeSelected)
+sortedKeys=sorted(dictOfKBestFeatures.keys())
+kBestFeaturesData=selectKBest.transform(X)
+selectedGenesNamesUsingKBest=list(pdGeneNames[sortedKeys])
+dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
+
 
 
 
@@ -335,6 +343,8 @@ Decreate_Rate=0.1
 GeneDataForClustering=kBestFeaturesData.transpose()
 Threshold=0.75
 dicOfGenesIndices=convertGeneKeyScoreToGeneIndexDic(dictOfKBestFeatures)
+
+
 dic_gene_clusters={}
 M=Initial_Clusters
 N=Final_Clusters
@@ -356,9 +366,9 @@ dic_Accuracy_genes={}
 
 fullGeneList=[]
 
+Maximum_Iteraions=0
 
-
-while mainLoopControl<0:
+while mainLoopControl<Maximum_Iteraions:
 
 
     print("**************************************************")
@@ -454,3 +464,54 @@ saveTrainedModel(svmRCEClassifer,rootPath+"/TrainedModels/Model/svm-rce.pkl")
 
 mergings=linkage(X_Selected.transpose(),method="complete")
 dendrogram(mergings,labels=TopGenes)
+
+
+# Following code was used for plot
+
+#
+# plotData=  [
+#             [31,		    0.9476],
+#             [60	,	    0.9277],
+#             [45	,	    0.919],
+#             [39	,	    0.9619],
+#             [45	,	    0.9111],
+#             [44	,	    0.9079],
+#             [59	,	    0.9563],
+#             [47	,	    0.9611],
+#             [63	,	    0.9809],
+#             [43	,	    0.9563],
+#             [36	,	    0.9031],
+#             [39	,	    0.9277],
+#             [39	,	    0.9],
+#             [31	,	    0.9285],
+#             [64	,	    0.9476],
+#             [41	,	    0.9666],
+#             [36	,	    0.9087],
+#             [19	,	    0.9015],
+#             [54	,	    0.942],
+#             [26	,	    0.9396]
+#
+#         ]
+# plotData=numpy.asarray(plotData)
+#
+# fig1 = plt.figure()
+#
+# # and the first axes using subplot populated with data
+# ax1 = fig1.add_subplot(111)
+# line1 = ax1.plot(plotData[:,0], 'r')
+# plt.ylabel("Gene Count")
+#
+# # now, the second axes that shares the x-axis with the ax1
+# ax2 = fig1.add_subplot(111, sharex=ax1, frameon=False)
+# line2 = ax2.plot(plotData[:,1], 'b')
+# ax2.yaxis.tick_right()
+# ax2.yaxis.set_label_position("right")
+# plt.ylabel("Accuracy")
+#
+# # for the legend, remember that we used two different axes so, we need
+# # to build the legend manually
+# blue_patch = mpatches.Patch(color='blue', label='Accuracy')
+# red_patch = mpatches.Patch(color='red', label='Gene Count')
+# plt.legend(handles=[red_patch,blue_patch])
+# plt.xlabel("Number if Iterations")
+# plt.show()
