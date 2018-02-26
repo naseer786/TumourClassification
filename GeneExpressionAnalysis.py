@@ -225,16 +225,15 @@ def getIndicesOfGenes(filteredGeneNames,fullGeneFile):
 
 
 # Root Path and Names of Individual File Names
-rootPath='E:/BioInformatics'            #This path should be changes based on location of the files
 trainFileName='pp5i_train.gr.csv'
 trainFileClassName='pp5i_train_class.txt'
 testFileName='pp5i_test.gr.csv'
-trainedModelPath=rootPath+"/"+"TrainedModels"
+trainedModelPath="TrainedModels"
 
 #Creating absolute Path from the relative Path
-trainFilePath=rootPath+'/'+trainFileName
-trainFileClassPath=rootPath+'/'+trainFileClassName
-testFilePath=rootPath+'/'+testFileName
+trainFilePath=trainFileName
+trainFileClassPath=trainFileClassName
+testFilePath=testFileName
 
 #Reading values in pandas data frame
 pdTrainFileValuesWithGeneColumn=pd.read_csv(trainFilePath)
@@ -360,7 +359,7 @@ samples=kBestFeaturesData.shape[0]
 firstDim = GeneDataForClustering.shape[0]
 mainLoopControl=0
 cluster_gene_dist={}
-accuracyPath = rootPath + "/TrainedModels/Accuracy/Accuracy_Genes.txt"
+accuracyPath = "TrainedModels/Accuracy/Accuracy_Genes.txt"
 fileAccuracy = open(accuracyPath, 'w')
 dic_Accuracy_genes={}
 
@@ -413,11 +412,11 @@ while mainLoopControl<Maximum_Iteraions:
         pdTestDataNormalized=stats.zscore(pdTestFileValues)
         testDataPruned=pdTestDataNormalized[:,geneIndices]
         print(le.inverse_transform(svmClassifier.predict(testDataPruned)))
-        geneName="/TrainedModels/GeneNames/geneNames_"+str(mainLoopControl)+".txt"
-        geneIndex="/TrainedModels/GeneIndices/geneIndices_"+str(mainLoopControl)+".txt"
+        geneName="TrainedModels/GeneNames/geneNames_"+str(mainLoopControl)+".txt"
+        geneIndex="TrainedModels/GeneIndices/geneIndices_"+str(mainLoopControl)+".txt"
         geneAccuracy=str(firstDim)+","+str(np.mean(averageAccuracy))
-        genesNamePath=  rootPath+geneName
-        genesIndexPath =rootPath+geneIndex
+        genesNamePath=  geneName
+        genesIndexPath =geneIndex
         genesExtracted=saveSeletedGenesToFile(geneIndices,genesNamePath,pdGeneNames)
         for gene in genesExtracted:
             fullGeneList.append(gene)
@@ -438,10 +437,10 @@ while mainLoopControl<Maximum_Iteraions:
 fileAccuracy.write(str(dic_Accuracy_genes))
 fileAccuracy.close()
 
-saveFullGeneList(fullGeneList,rootPath + "/TrainedModels/FullGeneList/FullGenes.txt")
-saveGeneClusterCountToFile(dic_gene_clusters,rootPath + "/TrainedModels/Accuracy/Cluster_Genes.txt")
+saveFullGeneList(fullGeneList,"TrainedModels/FullGeneList/FullGenes.txt")
+saveGeneClusterCountToFile(dic_gene_clusters,"TrainedModels/Accuracy/Cluster_Genes.txt")
 
-fullGenePath=rootPath+"/TrainedModels/FullGeneList/FullGenes.txt"
+fullGenePath="TrainedModels/FullGeneList/FullGenes.txt"
 pdAllSelectedGeneSet=pd.read_csv(fullGenePath,sep=" ",header=None)
 
 
@@ -460,7 +459,7 @@ for train_index, test_index in kFoldCrossValidator.split(X_Selected, y):
     finalAccuracy.append(svmRCEClassifer.score(FinalX_test, FinalY_test))
 print(np.mean(finalAccuracy))
 
-saveTrainedModel(svmRCEClassifer,rootPath+"/TrainedModels/Model/svm-rce.pkl")
+saveTrainedModel(svmRCEClassifer,"TrainedModels/Model/svm-rce.pkl")
 
 mergings=linkage(X_Selected.transpose(),method="complete")
 dendrogram(mergings,labels=TopGenes)
